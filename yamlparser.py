@@ -37,7 +37,7 @@ import json
 import yaml
 from yaml import SafeLoader
 import base64
-rstest = open('/Workspace/Users/roberto.salcido@databricks.com/dbtscratch/true.yml', 'r')
+rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/true.yml', 'r')
 python_dict=yaml.load(rstest, Loader=SafeLoader)
 json_string=json.dumps(python_dict)
 #print("The JSON string is:")
