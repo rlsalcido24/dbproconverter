@@ -1,0 +1,48 @@
+- name: namehere
+  sql:
+    skip: yes/no/maybe
+    noconditions:
+      text: ""
+    conditions:
+      boolean:
+        text: "testhere"
+        true: trueblue
+        false: skip 
+      notexist:
+        text: "testhere"
+        true: ""
+        false: ""
+      tree:
+       - treedict:
+          text: "@SRC_PROVIDER = 'OTIS'" 
+          true: ""
+          false: ""
+       - treedict:
+           text: "@SRC_PROVIDER = 'LAKE'"
+           true: select * into ##TDW_LND_DATA_PROCESSED from TDW_LND_DATALAKE_PROCESSED
+           false: next
+      catachall:
+        text: select * into
+  next: 
+    noconditions:
+      text: ""
+    conditions:
+      boolean:
+        text: "testhere"
+        true: trueblue
+        false: skip 
+      notexist:
+        text: "testhere"
+        true: ""
+        false: ""
+      tree:
+       - treedict:
+          text: "@SRC_PROVIDER = 'OTIS'" 
+          true: ""
+          false: ""
+       - treedict:
+           text: "@SRC_PROVIDER = 'LAKE'"
+           true: select * into ##TDW_LND_DATA_PROCESSED from TDW_LND_DATALAKE_PROCESSED
+           false: next
+      catachall:
+        text: select * into
