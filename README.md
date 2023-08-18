@@ -16,13 +16,13 @@ Next steps <br>
 
 This repo is still very much a WIP-- that being said if you import this repo into a databricks environment you can run the yamlparser reading in any valid yml file. You can use the raw.yml or true.yml (based off real customer example) or any other yml. Here are the immediate next steps: <br>
 
-i) Ensure sql notebook task creation logic functions as expected in the yamlparser (returns zip file error)
-ii) Generate a false.yml and mix.yml with different conditions to validate node tree logic functions as expected.
+i) Ensure sql notebook task creation logic functions as expected in the yamlparser (returns zip file error) <br>
+ii) Generate a false.yml and mix.yml with different conditions to validate node tree logic functions as expected. <br>
 
 Here are the medium/long term next steps:
 
-i) Support while looping
-ii) 'cleanse' the sql text to ensure parameter support
-iii) invoke the global/local params in a more elegant way (widgets, etc)
+i) Support while looping <br>
+ii) 'cleanse' the sql text to ensure parameter support <br>
+iii) invoke the global/local params in a more elegant way (widgets, etc) <br>
 
 FWIW this will all be much easier once we natively support dynamic sql vars and looping within workflows :)
