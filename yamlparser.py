@@ -37,7 +37,7 @@ import json
 import yaml
 from yaml import SafeLoader
 import base64
-rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/true.yml', 'r')
+rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/mix.yml', 'r')
 python_dict=yaml.load(rstest, Loader=SafeLoader)
 json_string=json.dumps(python_dict)
 #print("The JSON string is:")
@@ -93,8 +93,10 @@ def valconditionsql(subsetconditions):
   getkey = list(getllaves)[0]
   nestcondition = subsetconditions[getkey]
   if getkey == 'bool':
-    result = spark.sql(nestcondition["text"])
-    if result == 1:
+    sparkresult = spark.sql(nestcondition["text"])
+    pdresult = sparkresult.toPandas()
+    result = pdresult.iloc[0, 0]
+    if result == True:
       trueval = nestcondition["true"]
       return trueval
     else:
@@ -111,9 +113,11 @@ def valconditionsql(subsetconditions):
        return existval
   elif getkey == 'tree':
     for count, treeconditions in enumerate(nestcondition):
-      result = spark.sql(treeconditions["treedict"]["text"])
-      if result == treeconditions["treedict"]["true"]:
-        treeval = treecondtions["treedict"]["true"]
+      sparkresult = spark.sql(treeconditions["treedict"]["text"])
+      pdresult = sparkresult.toPandas()
+      result = pdresult.iloc[0, 0]
+      if result == True:
+        treeval = treeconditions["treedict"]["true"]
         return treeval
     treeval = subsetconditions["catchall"]["text"]
     return treeval
@@ -154,18 +158,19 @@ def valconditionflow(subset):
 def createsqlnb(nbcontent, dictname):
   host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/import'
   un = 'roberto.salcido@databricks.com'
-  pw = 'dapi7223671f5a21ef23eb9f28a8c9eb3524'
+  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
   url = host
   pathname = dictname
   payload = {
-"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}".format(pathname),
+"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}".format(pathname),
 "format": "SOURCE",
 "language": "SQL",
 "content": nbcontent,
-"overwrite": "false"
+"overwrite": "true"
 }
   skipdecode = base64.b64decode(nbcontent)
   skipcheck = skipdecode.decode('ascii')
+  print(skipcheck)
   if skipcheck == 'skip':
     results = 'no notebook created'
     return results
@@ -177,9 +182,9 @@ def createsqlnb(nbcontent, dictname):
 # COMMAND ----------
 
 def getsqlnb(path):
-  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/get-status?path=/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}'.format(path)
+  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/get-status?path=/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}'.format(path)
   un = 'roberto.salcido@databricks.com'
-  pw = 'dapi7223671f5a21ef23eb9f28a8c9eb3524'
+  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
   url = host
   r = requests.get(url, auth=HTTPBasicAuth(un, pw))
   results = r.json()
@@ -199,7 +204,7 @@ def gentaskpayload(flowarraydicts):
       taskdict = {   #"task_key": "create table {}".format(name),
                "task_key": "{}".format(flowdict['name']),
                 "notebook_task": {
-                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}".format(flowdict['name']),
+                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}".format(flowdict['name']),
                     "source": "WORKSPACE"
                 },
                 "job_cluster_key": "Job_cluster",
@@ -222,7 +227,7 @@ from requests.auth import HTTPBasicAuth
 def createmtj(jsonblob):
   host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.1/jobs/create'
   un = 'roberto.salcido@databricks.com'
-  pw = 'dapi7223671f5a21ef23eb9f28a8c9eb3524'
+  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
   url = host
   payload = jsonblob
   r = requests.post(url, auth=HTTPBasicAuth(un, pw), json=payload)
@@ -231,16 +236,44 @@ def createmtj(jsonblob):
 
 # COMMAND ----------
 
-#sqlnb = createsqlnotebooks(testdict)
-nodetree = buildflow(testdict)
+string = """-- Databricks notebook source /n select * into ##TDW_LND_DATA_PROCESSED from TDW_LND alter table ##TDW_LND_DATA_PROCESSED add SRC_CPTY_LEGAL_ENTITY varchar(20) collate Latin1_General_BIN -- dummy column alter table ##TDW_LND_DATA_PROCESSED add SRC_COMPETITIVE_FLAG varchar(1) collate Latin1_General_BIN null alter table ##TDW_LND_DATA_PROCESSED add SRC_PRE_NUM_DEALERS [int]  NULL alter table ##TDW_LND_DATA_PROCESSED add IS_PROCESSED_TRADE varchar(1) collate Latin1_General_BIN not null default 'N' alter table ##TDW_LND_DATA_PROCESSED add MESSAGE_ID  varchar(100) collate Latin1_General_BIN NULL alter table ##TDW_LND_DATA_PROCESSED add SRC_GTM_TRADE_ID    varchar(50) collate Latin1_General_BIN NULL"""
+
+ascstring = string.encode('ascii')
+stringcontent = base64.b64encode(ascstring)
+
+def tempnb():
+  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/import'
+  un = 'roberto.salcido@databricks.com'
+  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
+  url = host
+  payload = {
+"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/rstestres",
+"format": "SOURCE",
+"language": "SQL",
+"content": stringcontent,
+"overwrite": "true"
+}
+  skipdecode = base64.b64decode(stringcontent)
+  skipcheck = skipdecode.decode('ascii')
+  print(skipcheck)
+  r = requests.post(url, auth=HTTPBasicAuth(un, pw), json=payload)
+  results = r.json()
+  return results
+
+cde = tempnb()  
+print(cde)
+
+# COMMAND ----------
+
+sqlnb = createsqlnotebooks(testdict)
+print(sqlnb)
+#nodetree = buildflow(testdict)
 #taskpayload = gentaskpayload(nodetree)
-taskpayload = []
-print(nodetree)
 
 # COMMAND ----------
 
 fulljsonblob = {
-    "name": "sproctestmix",
+    "name": "sproctestmixdos",
     "email_notifications": {
             "no_alert_for_skipped_runs": "false"
         },
@@ -287,5 +320,5 @@ fulljsonblob = {
 
 # COMMAND ----------
 
-#genjob = createmtj(fulljsonblob)
-#print(genjob)
+genjob = createmtj(fulljsonblob)
+print(genjob)
