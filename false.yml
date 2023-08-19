@@ -1,0 +1,310 @@
+- name: initialcheck
+  sql:
+    skip: yes    
+  next: 
+    conditions:
+      notexist:
+        text: "SELECT 1 = 0"
+        true: exitsp
+        false: secondcheck
+ 
+- name: secondcheck
+  sql:
+    skip: maybe
+    conditions:
+      notexist:
+        text: "SELECT zzz"
+        true: "SELECT * FROM dbo.ETL_CONTROL_TABLE 
+    WHERE SOURCE_SYSTEM_CODE = @SOURCE_SYSTEM_CODE AND STATUS = 'Y'
+        AND EXTRACT_ID = @EXTRACT_ID ) 
+	BEGIN		 
+		SELECT	@ErrorMessage = object_name(@@procid) + ': Execution rejected. Last record in ETL_CONTROL_TABLE table for SOURCE_SYSTEM_CODE = ''' + RTRIM(@SOURCE_SYSTEM_CODE) + ''' must be with STATUS = ''Y''.'
+
+		SET @ErrorCode = -10
+		
+	END"
+        false: skip     
+  next: 
+    conditions:
+      notexist:
+        text: "SELECT zzz"
+        true: exitsp
+        false: thirdcheck
+
+
+- name: thirdcheck
+  sql:
+    skip: maybe
+    conditions:
+      notexist:
+        text: "SELECT 1 = 1"
+        true: "SELECT	@ErrorMessage = object_name(@@procid) + ': Executi rejected Only one record must exists in ETL_CONTROL_TABLE table with STATUS = ''Y'' for SOURCE_SYSTEM_CODE = ''' + RTRIM(@SOURCE_SYSTEM_CODE) + '''. SET @ErrorCode = -20 END "
+        false: skip
+  
+  next: 
+    conditions:
+      notexist:
+        text: "SELECT 1 = 1"
+        
+        true: exitsp
+        false: droptest
+
+
+- name: droptest
+  sql:
+    skip: maybe
+    conditions:
+      bool:
+        text: "SELECT 1 = 1"
+        true: drop table ##TDW_LND_DATA_PROCESSED
+
+        false: skip     
+  next: 
+    noconditions:
+      text: srctable
+
+                 
+- name: srctable
+  sql:
+    skip: maybe
+    conditions:
+      tree:
+        - treedict:
+            text: "SELECT 1 = 1"
+            true: "select * into ##TDW_LND_DATA_PROCESSED from TDW_LND  
+            alter table ##TDW_LND_DATA_PROCESSED add SRC_CPTY_LEGAL_ENTITY varchar(20) collate Latin1_General_BIN -- dummy column
+ alter table ##TDW_LND_DATA_PROCESSED add SRC_COMPETITIVE_FLAG varchar(1) collate Latin1_General_BIN null  
+ alter table ##TDW_LND_DATA_PROCESSED add SRC_PRE_NUM_DEALERS [int]  NULL
+ alter table ##TDW_LND_DATA_PROCESSED add IS_PROCESSED_TRADE varchar(1) collate Latin1_General_BIN not null default 'N'
+  alter table ##TDW_LND_DATA_PROCESSED add MESSAGE_ID  varchar(100) collate Latin1_General_BIN NULL 
+  alter table ##TDW_LND_DATA_PROCESSED add SRC_GTM_TRADE_ID    varchar(50) collate Latin1_General_BIN NULL" 
+          false: next
+        - treedict:
+            text: "SELECT 1 = 1"
+            true: select * into ##TDW_LND_DATA_PROCESSED from TDW_LND_DATALAKE_PROCESSED
+            false: next
+      catchall:
+        text: select * into #TDW_LND_DATA_PROCESSED from ##TDW_LND_DATA_PROCESSED     
+  next: 
+    noconditions:
+      text: droptestuno
+
+- name: droptestuno
+  sql:
+    skip: maybe
+    conditions:
+      bool:
+        text: "SELECT 1 = 1"
+        true: "select  @ErrorMessage = object_name(@@procid) + ': Execution failed. There are NO records in Landing table for SOURCE_SYSTEM_CODE = ''' + RTRIM(@SOURCE_SYSTEM_CODE) + '''.'
+SET @ErrorCode = -20 " 
+
+        false: skip     
+  next: 
+    conditions:
+      bool: 
+        text: "SELECT 1 = 1"
+        true: exitsp
+        false: salesgrid         
+
+- name: salesgrid
+  sql:
+    skip: no
+    noconditions:
+      text: "select RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER
+  into #SALES_GRID_ADJUSTMENT 
+from (
+  select RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER 
+  from SALES_GRID_ADJUSTMENT 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+      and WITH_CHILDREN = 'N'    
+  ) t"    
+  next: 
+    noconditions:
+      text: salesgridv2
+
+
+- name: salesgridv2
+  sql:
+    skip: no
+    noconditions:
+      text: "insert into #SALES_GRID_ADJUSTMENT(RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER)
+  select t2.RSS_PRODUCT_ID, t1.CC_CODE, t1.START_DT, t1.END_DT, t1.MULTIPLIER
+  from SALES_GRID_ADJUSTMENT t1
+      inner join RSS_PRODUCT t2 on
+          t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID)
+      inner join RSS_PRODUCT t3 on
+          t1.RSS_PRODUCT_ID = t3.RSS_PRODUCT_ID
+      inner join (
+          select t02.RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, max(t03.PRODUCT_HIERARCHY_DEPTH) as PRODUCT_HIERARCHY_DEPTH_MAX 
+          from SALES_GRID_ADJUSTMENT t01
+              inner join RSS_PRODUCT t02 on
+                  t01.RSS_PRODUCT_ID in (t02.RSS_PRODUCT_LVL1_ID, t02.RSS_PRODUCT_LVL2_ID, t02.RSS_PRODUCT_LVL3_ID, t02.RSS_PRODUCT_LVL4_ID, t02.RSS_PRODUCT_LVL5_ID)
+              inner join RSS_PRODUCT t03 on
+                  t01.RSS_PRODUCT_ID = t03.RSS_PRODUCT_ID     
+          where t01.SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+              and t01.WITH_CHILDREN = 'Y'
+          group by t02.RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT    
+      ) t4 on
+      t2.RSS_PRODUCT_ID = t4.RSS_PRODUCT_ID
+          and t1.CC_CODE = t4.CC_CODE
+          and t1.START_DT = t4.START_DT
+          and t1.END_DT = t4.END_DT
+          and t3.PRODUCT_HIERARCHY_DEPTH = t4.PRODUCT_HIERARCHY_DEPTH_MAX         
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+      and t1.WITH_CHILDREN = 'Y' 
+      and not exists(select * from #SALES_GRID_ADJUSTMENT where RSS_PRODUCT_ID = t2.RSS_PRODUCT_ID and CC_CODE = t1.CC_CODE and START_DT = t1.START_DT and END_DT = t1.END_DT )"   
+   
+  next: 
+    noconditions:
+      text: salesgridpricing
+
+ 
+- name: salesgridpricing
+  sql:
+    skip: no
+    noconditions:
+      text: "select RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER
+  into #SALES_GRID_ADJUSTMENT_PRE_REPRICING 
+from (
+  select RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER 
+  from SALES_GRID_ADJUSTMENT_PRE_REPRICING 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+      and WITH_CHILDREN = 'N'  
+  ) t;
+ 
+insert into #SALES_GRID_ADJUSTMENT_PRE_REPRICING(RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, MULTIPLIER)
+  select t2.RSS_PRODUCT_ID, t1.CC_CODE, t1.START_DT, t1.END_DT, t1.MULTIPLIER
+  from SALES_GRID_ADJUSTMENT_PRE_REPRICING t1
+      inner join RSS_PRODUCT t2 on
+          t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID)
+      inner join RSS_PRODUCT t3 on
+          t1.RSS_PRODUCT_ID = t3.RSS_PRODUCT_ID
+      inner join (
+          select t02.RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT, max(t03.PRODUCT_HIERARCHY_DEPTH) as PRODUCT_HIERARCHY_DEPTH_MAX 
+          from SALES_GRID_ADJUSTMENT_PRE_REPRICING t01
+              inner join RSS_PRODUCT t02 on
+                  t01.RSS_PRODUCT_ID in (t02.RSS_PRODUCT_LVL1_ID, t02.RSS_PRODUCT_LVL2_ID, t02.RSS_PRODUCT_LVL3_ID, t02.RSS_PRODUCT_LVL4_ID, t02.RSS_PRODUCT_LVL5_ID)
+              inner join RSS_PRODUCT t03 on
+                  t01.RSS_PRODUCT_ID = t03.RSS_PRODUCT_ID     
+          where t01.SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+              and t01.WITH_CHILDREN = 'Y'
+          group by t02.RSS_PRODUCT_ID, CC_CODE, START_DT, END_DT    
+      ) t4 on
+      t2.RSS_PRODUCT_ID = t4.RSS_PRODUCT_ID
+          and t1.CC_CODE = t4.CC_CODE
+          and t1.START_DT = t4.START_DT
+          and t1.END_DT = t4.END_DT
+          and t3.PRODUCT_HIERARCHY_DEPTH = t4.PRODUCT_HIERARCHY_DEPTH_MAX         
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD
+      and t1.WITH_CHILDREN = 'Y' 
+      and not exists(select * from #SALES_GRID_ADJUSTMENT_PRE_REPRICING where RSS_PRODUCT_ID = t2.RSS_PRODUCT_ID and CC_CODE = t1.CC_CODE and START_DT = t1.START_DT and END_DT = t1.END_DT )"
+   
+  next: 
+    noconditions:
+      text: salesgridprod  
+
+- name: salesgridprod
+  sql:
+    skip: no
+    noconditions:
+      text: "select RSS_PRODUCT_ID, START_DT, END_DT, SRC_RISK_CD, MULTIPLIER 
+  into #SALES_GRID_RISK_CODE_PRODUCT 
+from ( 
+  select RSS_PRODUCT_ID, START_DT, END_DT, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and WITH_CHILDREN = 'N' 
+  union 
+  select t2.RSS_PRODUCT_ID,  START_DT, END_DT, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT t1 
+      inner join RSS_PRODUCT t2 on             
+t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID) 
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and t1.WITH_CHILDREN = 'Y' 
+  ) t" 
+   
+  next: 
+    noconditions:
+      text: salesgridprodccy 
+
+- name: salesgridprodccy
+  sql:
+    skip: no
+    noconditions:
+      text: "select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  into #SALES_GRID_RISK_CODE_PRODUCT_CCY 
+from ( 
+  select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and WITH_CHILDREN = 'N' 
+  union 
+  select t2.RSS_PRODUCT_ID,  START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY t1 
+      inner join RSS_PRODUCT t2 on             
+t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID) 
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and t1.WITH_CHILDREN = 'Y' 
+  ) t "
+   
+  next: 
+    noconditions:
+      text: salesgridprodccypricing
+
+- name: salesgridprodccypricing
+  sql:
+    skip: no
+    noconditions:
+      text: "drop table #SALES_GRID_RISK_CODE_PRODUCT_CCY_PRE_REPRICING declare @SRC_SYSTEM_CD varchar(20) set @SRC_SYSTEM_CD = 'TOME'
+select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  into #SALES_GRID_RISK_CODE_PRODUCT_CCY_PRE_REPRICING 
+from ( 
+  select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY_PRE_REPRICING 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and WITH_CHILDREN = 'N' 
+  union 
+  select t2.RSS_PRODUCT_ID,  START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY_PRE_REPRICING t1 
+      inner join RSS_PRODUCT t2 on             
+t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID) 
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and t1.WITH_CHILDREN = 'Y' 
+  ) t
+-- select * from #SALES_GRID_RISK_CODE_PRODUCT_CCY_PRE_REPRICING" 
+   
+  next: 
+    noconditions:
+      text: salesgridprodccychannel
+  
+- name: salesgridprodccychannel
+  sql:
+    skip: no
+    noconditions:
+      text: "select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, ETRADE_FLAG, MULTIPLIER 
+  into #SALES_GRID_RISK_CODE_PRODUCT_CCY_CHANNEL 
+from ( 
+  select RSS_PRODUCT_ID, START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, ETRADE_FLAG, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY_CHANNEL 
+  where SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and WITH_CHILDREN = 'N' 
+  union 
+  select t2.RSS_PRODUCT_ID,  START_DT, END_DT, SRC_CCY_CD, SRC_RISK_CD, ETRADE_FLAG, MULTIPLIER 
+  from SALES_GRID_RISK_CODE_PRODUCT_CCY_CHANNEL t1 
+      inner join RSS_PRODUCT t2 on             
+t1.RSS_PRODUCT_ID in (t2.RSS_PRODUCT_LVL1_ID, t2.RSS_PRODUCT_LVL2_ID, t2.RSS_PRODUCT_LVL3_ID, t2.RSS_PRODUCT_LVL4_ID, t2.RSS_PRODUCT_LVL5_ID) 
+  where t1.SRC_SYSTEM_CD = @SRC_SYSTEM_CD 
+      and t1.WITH_CHILDREN = 'Y' 
+  ) t"  
+  next: 
+    noconditions:
+      text: fin
+- name: exitsp
+  sql:
+    skip: yes    
+  next: 
+    conditions:
+      notexist:
+        text: "SELECT 1 = 1"
+        true: fin
+        false: fin 

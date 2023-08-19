@@ -53,7 +53,7 @@ def createsqlnotebooks(arraydicts):
   for (dicts) in (arraydicts):
     subset = dicts.get('sql')
     if subset['skip'] == True:
-      results = 'moo'
+      results = dicts.get('name')
       resultarray.append(results)
     elif subset['skip'] == False:
       nbcontent = gencontent(subset, 'no')
@@ -71,12 +71,14 @@ def gencontent(subset, string):
   bull = string
   if string == 'no':
     nbstring = subset['noconditions']["text"]
-    nbytes = nbstring.encode('ascii')
+    nbstringsource = "-- Databricks notebook source /n " + nbstring
+    nbytes = nbstringsource.encode('ascii')
     nbcontent = base64.b64encode(nbytes)
     return nbcontent
   elif string == 'maybe':
     dynamicnbcontent = valconditionsql(subset['conditions'])
-    nbytes = dynamicnbcontent.encode('ascii')
+    nbstringsource = "-- Databricks notebook source /n " + dynamicnbcontent
+    nbytes = nbstringsource.encode('ascii')
     nbcontent = base64.b64encode(nbytes)
     return nbcontent
   else:  
@@ -156,14 +158,14 @@ def createsqlnb(nbcontent, dictname):
   url = host
   pathname = dictname
   payload = {
-"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}.sql".format(pathname),
+"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}".format(pathname),
 "format": "SOURCE",
+"language": "SQL",
 "content": nbcontent,
 "overwrite": "false"
 }
   skipdecode = base64.b64decode(nbcontent)
   skipcheck = skipdecode.decode('ascii')
-  print(skipcheck)
   if skipcheck == 'skip':
     results = 'no notebook created'
     return results
@@ -174,18 +176,30 @@ def createsqlnb(nbcontent, dictname):
 
 # COMMAND ----------
 
+def getsqlnb(path):
+  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/get-status?path=/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}'.format(path)
+  un = 'roberto.salcido@databricks.com'
+  pw = 'dapi7223671f5a21ef23eb9f28a8c9eb3524'
+  url = host
+  r = requests.get(url, auth=HTTPBasicAuth(un, pw))
+  results = r.json()
+  return results
+
+# COMMAND ----------
+
 def gentaskpayload(flowarraydicts):
   tasks = []
   for flowdict in flowarraydicts:
-    #try: 
-      #testread = open('/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}', 'r').format(flowdict['name'])
-    #except:
-      #cow = 'moo'  
-    #else:
+    getnb = getsqlnb(flowdict['name'])
+    try: 
+      validpath = getnb["path"] 
+    except:
+      cow = 'moo' 
+    else:
       taskdict = {   #"task_key": "create table {}".format(name),
                "task_key": "{}".format(flowdict['name']),
                 "notebook_task": {
-                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}".format(flowdict['name']),
+                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mix/{}".format(flowdict['name']),
                     "source": "WORKSPACE"
                 },
                 "job_cluster_key": "Job_cluster",
@@ -217,15 +231,16 @@ def createmtj(jsonblob):
 
 # COMMAND ----------
 
-sqlnb = createsqlnotebooks(testdict)
-print(sqlnb)
+#sqlnb = createsqlnotebooks(testdict)
 nodetree = buildflow(testdict)
-taskpayload = gentaskpayload(nodetree)
+#taskpayload = gentaskpayload(nodetree)
+taskpayload = []
+print(nodetree)
 
 # COMMAND ----------
 
 fulljsonblob = {
-    "name": "sproctesttrue",
+    "name": "sproctestmix",
     "email_notifications": {
             "no_alert_for_skipped_runs": "false"
         },
@@ -272,5 +287,5 @@ fulljsonblob = {
 
 # COMMAND ----------
 
-genjob = createmtj(fulljsonblob)
-print(genjob)
+#genjob = createmtj(fulljsonblob)
+#print(genjob)
