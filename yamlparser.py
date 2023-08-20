@@ -48,6 +48,16 @@ print(testdict)
 
 # COMMAND ----------
 
+dbutils.widgets.text("notebookpath", "nbpath")
+dbutils.widgets.text("jobname", "procjob")
+
+# COMMAND ----------
+
+nbpath = dbutils.widgets.get("notebookpath")
+jobname = dbutils.widgets.get("jobname")
+
+# COMMAND ----------
+
 def createsqlnotebooks(arraydicts):
   resultarray = []
   for (dicts) in (arraydicts):
@@ -71,13 +81,13 @@ def gencontent(subset, string):
   bull = string
   if string == 'no':
     nbstring = subset['noconditions']["text"]
-    nbstringsource = "-- Databricks notebook source /n " + nbstring
+    nbstringsource = "-- Databricks notebook source \n " + nbstring
     nbytes = nbstringsource.encode('ascii')
     nbcontent = base64.b64encode(nbytes)
     return nbcontent
   elif string == 'maybe':
     dynamicnbcontent = valconditionsql(subset['conditions'])
-    nbstringsource = "-- Databricks notebook source /n " + dynamicnbcontent
+    nbstringsource = "-- Databricks notebook source \n " + dynamicnbcontent
     nbytes = nbstringsource.encode('ascii')
     nbcontent = base64.b64encode(nbytes)
     return nbcontent
@@ -158,11 +168,11 @@ def valconditionflow(subset):
 def createsqlnb(nbcontent, dictname):
   host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/import'
   un = 'roberto.salcido@databricks.com'
-  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
+  pw = dbutils.secrets.get(scope="robertocreds", key="password")
   url = host
   pathname = dictname
   payload = {
-"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}".format(pathname),
+"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}/{}".format(nbpath, pathname),
 "format": "SOURCE",
 "language": "SQL",
 "content": nbcontent,
@@ -182,9 +192,9 @@ def createsqlnb(nbcontent, dictname):
 # COMMAND ----------
 
 def getsqlnb(path):
-  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/get-status?path=/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}'.format(path)
+  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/get-status?path=/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}/{}'.format(nbpath, path)
   un = 'roberto.salcido@databricks.com'
-  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
+  pw = dbutils.secrets.get(scope="robertocreds", key="password")
   url = host
   r = requests.get(url, auth=HTTPBasicAuth(un, pw))
   results = r.json()
@@ -204,7 +214,7 @@ def gentaskpayload(flowarraydicts):
       taskdict = {   #"task_key": "create table {}".format(name),
                "task_key": "{}".format(flowdict['name']),
                 "notebook_task": {
-                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/{}".format(flowdict['name']),
+                    "notebook_path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/{}/{}".format(nbpath, flowdict['name']),
                     "source": "WORKSPACE"
                 },
                 "job_cluster_key": "Job_cluster",
@@ -221,13 +231,14 @@ def gentaskpayload(flowarraydicts):
 import json
 import requests
 import pandas as pd
+import base64
 
 from requests.auth import HTTPBasicAuth
 
 def createmtj(jsonblob):
   host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.1/jobs/create'
   un = 'roberto.salcido@databricks.com'
-  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
+  pw = dbutils.secrets.get(scope="robertocreds", key="password")
   url = host
   payload = jsonblob
   r = requests.post(url, auth=HTTPBasicAuth(un, pw), json=payload)
@@ -236,44 +247,14 @@ def createmtj(jsonblob):
 
 # COMMAND ----------
 
-string = """-- Databricks notebook source /n select * into ##TDW_LND_DATA_PROCESSED from TDW_LND alter table ##TDW_LND_DATA_PROCESSED add SRC_CPTY_LEGAL_ENTITY varchar(20) collate Latin1_General_BIN -- dummy column alter table ##TDW_LND_DATA_PROCESSED add SRC_COMPETITIVE_FLAG varchar(1) collate Latin1_General_BIN null alter table ##TDW_LND_DATA_PROCESSED add SRC_PRE_NUM_DEALERS [int]  NULL alter table ##TDW_LND_DATA_PROCESSED add IS_PROCESSED_TRADE varchar(1) collate Latin1_General_BIN not null default 'N' alter table ##TDW_LND_DATA_PROCESSED add MESSAGE_ID  varchar(100) collate Latin1_General_BIN NULL alter table ##TDW_LND_DATA_PROCESSED add SRC_GTM_TRADE_ID    varchar(50) collate Latin1_General_BIN NULL"""
-
-ascstring = string.encode('ascii')
-stringcontent = base64.b64encode(ascstring)
-
-def tempnb():
-  host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.0/workspace/import'
-  un = 'roberto.salcido@databricks.com'
-  pw = dbutils.secrets.get(scope="my-scope", key="my-key")
-  url = host
-  payload = {
-"path": "/Users/roberto.salcido@databricks.com/StoredProcedureTasks/Mixuno/rstestres",
-"format": "SOURCE",
-"language": "SQL",
-"content": stringcontent,
-"overwrite": "true"
-}
-  skipdecode = base64.b64decode(stringcontent)
-  skipcheck = skipdecode.decode('ascii')
-  print(skipcheck)
-  r = requests.post(url, auth=HTTPBasicAuth(un, pw), json=payload)
-  results = r.json()
-  return results
-
-cde = tempnb()  
-print(cde)
-
-# COMMAND ----------
-
 sqlnb = createsqlnotebooks(testdict)
-print(sqlnb)
-#nodetree = buildflow(testdict)
-#taskpayload = gentaskpayload(nodetree)
+nodetree = buildflow(testdict)
+taskpayload = gentaskpayload(nodetree)
 
 # COMMAND ----------
 
 fulljsonblob = {
-    "name": "sproctestmixdos",
+    "name": "{}".format(jobname),
     "email_notifications": {
             "no_alert_for_skipped_runs": "false"
         },
