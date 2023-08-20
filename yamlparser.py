@@ -33,11 +33,23 @@
 
 # COMMAND ----------
 
+dbutils.widgets.text("notebookpath", "nbpath")
+dbutils.widgets.text("jobname", "procjob")
+dbutils.widgets.text("yamlfile", "mix")
+
+# COMMAND ----------
+
+nbpath = dbutils.widgets.get("notebookpath")
+jobname = dbutils.widgets.get("jobname")
+yamlfile = dbutils.widgets.get("yamlfile")
+
+# COMMAND ----------
+
 import json
 import yaml
 from yaml import SafeLoader
 import base64
-rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/mix.yml', 'r')
+rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/{}.yml'.format(yamlfile), 'r')
 python_dict=yaml.load(rstest, Loader=SafeLoader)
 json_string=json.dumps(python_dict)
 #print("The JSON string is:")
@@ -45,16 +57,6 @@ json_string=json.dumps(python_dict)
 json = json.loads(json_string)
 testdict = json
 print(testdict)
-
-# COMMAND ----------
-
-dbutils.widgets.text("notebookpath", "nbpath")
-dbutils.widgets.text("jobname", "procjob")
-
-# COMMAND ----------
-
-nbpath = dbutils.widgets.get("notebookpath")
-jobname = dbutils.widgets.get("jobname")
 
 # COMMAND ----------
 
