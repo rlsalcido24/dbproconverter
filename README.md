@@ -14,7 +14,7 @@ In the dbt implementation, the yamlparser will create sql files (optional) then 
 
 In the MTJ implmenetation, the yamlparser will create sql notebook tasks and built the node tree. The last step is to translate the node tree to an array of dictionaries that can then be used as a payload to create a MTJ. This MTJ is ultimately meant to achive the same thing as the original SPROC-- dynamic pipeline exeuction that builds a warehouse according to a precise sequence of steps. However this would be a much more modern interpretation of a SPROC-- modular, merge compatible, data quality/lineage/discovery/quality tests with version control and fault tolerance, all on modern scalable + elastic cloud hardware-- no more running sprocs on-prem on fri evening and crossing your fingers hoping it finishes before analysts come into work mon morning!!
 
-Next steps <br>
+### Next steps <br>
 
 This repo is still very much a WIP-- that being said if you import this repo into a databricks environment you can run the yamlparser reading in any valid yml file. Here is a 'hello world' CUJ to try out <br>
 
@@ -24,7 +24,7 @@ iii) Run the logic with integrationtest set to true-- observe the conditional lo
 
 We gladly welcome contributions-- as long as the tests for mix.yml, true.yml, and false.yml pass just descrive the nature of the changes that you've implemented and happy to review and merge the PR! In future versions we will seek to automate intergration testing and merging!  
 
-Here are the medium/long term next steps:
+### Here are the medium/long term next steps:
 
 i) Support while looping <br>
 ii) Replace sql text so that dynamic database variables execute as expected. <br>
