@@ -1,37 +1,5 @@
 # Databricks notebook source
-@StartTime = getdate()    
-@unknown_CLIENT_FID      int,
-@unknown_PRODUCT_ID     int,
-@unknown_RATE_ID        int,
-@unknown_RATE_ID_CAD    int,
-@unknown_RATE_ID_USD    int,ƒ
-@unknown_SALESPERSON_ID int,
-@WarningCode 		    int,
-@WarningMessage 		varchar(255)
-
-@creation_dt datetime
-@MAX_LAST_UPDATE_DATE datetime  
-@id int
-@id_max int 
-@records int 
-@rowcount int
-
-@STRUC_RATE_PRODUCT_ID int -- v.2.0
-@APPLICATION varchar(10), 
-@APPLICATION_USE varchar(10)
-@START_DT_V2 as date
-@START_DT_V2 = '2015-03-15'
-@ErrorCode = 0
-@ErrorMessage = ''
-@WithWarning = 0 
-@WarningCode = 0,
-@WarningMessage = ''
-@EXTRACT_ID = ( 
-    SELECT MAX(EXTRACT_ID) 
-    FROM dbo.ETL_CONTROL_TABLE
-    WHERE SOURCE_SYSTEM_CODE = @SOURCE_SYSTEM_CODE )
-
-# COMMAND ----------
+### this cell instantiates the widgets. The dynamic sql notebooks/files get written to dbtroot or notebook root/notebookdir. In MTJ mode jobname controls the MTJ job name. yamlfile controls the input yml (derived from a sproc) and integrationtest runs tests based on known test yml files. 
 
 dbutils.widgets.text("notebookroot", "/Users/roberto.salcido@databricks.com/StoredProcedureTasks")
 dbutils.widgets.text("notebookdir", "mixtres")
@@ -55,10 +23,16 @@ integrationtest = dbutils.widgets.get("integrationtest")
 
 # COMMAND ----------
 
+### this cell imports relevant libraries and loads in the input yml file as a dictionary, which is then leveraged for downstream functions.
+
 import json
 import yaml
 from yaml import SafeLoader
 import base64
+import requests
+import pandas as pd
+from requests.auth import HTTPBasicAuth
+
 rstest = open('/Workspace/Repos/roberto.salcido@databricks.com/dbproconverter/{}.yml'.format(yamlfile), 'r')
 python_dict=yaml.load(rstest, Loader=SafeLoader)
 json_string=json.dumps(python_dict)
@@ -70,7 +44,7 @@ print(testdict)
 
 # COMMAND ----------
 
-def createsqldbx(arraydicts):
+def createdbxnotebooks(arraydicts):
   resultarray = []
   for (dicts) in (arraydicts):
     subset = dicts.get('sql')
@@ -381,13 +355,6 @@ def genselectoryml(flowarraydicts):
 
 # COMMAND ----------
 
-import json
-import requests
-import pandas as pd
-import base64
-
-from requests.auth import HTTPBasicAuth
-
 def createmtj(jsonblob):
   host = 'https://e2-demo-field-eng.cloud.databricks.com/api/2.1/jobs/create'
   un = 'roberto.salcido@databricks.com'
@@ -458,7 +425,7 @@ if mode == 'dbt':
 
 
 else:
-  sqlnb = createsqldbx(testdict)
+  sqlnb = createdbxnotebooks(testdict)
   nodetree = buildflow(testdict)
   taskpayload = gentaskpayload(nodetree)
   fulljsonblob = genfulljsonblob(taskpayload)
