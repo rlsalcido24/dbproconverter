@@ -36,7 +36,7 @@
 dbutils.widgets.text("notebookroot", "/Users/roberto.salcido@databricks.com/StoredProcedureTasks")
 dbutils.widgets.text("notebookdir", "mixtres")
 dbutils.widgets.text("jobname", "procjob")
-dbutils.widgets.text("yamlfile", "mix")
+dbutils.widgets.dropdown("yamlfile", "mix", ["mix", "true", "false"])
 dbutils.widgets.dropdown("mode", "mtj", ["mtj", "dbt"] )
 dbutils.widgets.text("dbtroot", "dbtroot")
 dbutils.widgets.text("integrationtest", "false")
