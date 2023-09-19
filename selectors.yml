@@ -1,0 +1,14 @@
+selectors:
+- defintion:
+    union:
+    - method: fqn
+      value: secondcheck
+    - method: fqn
+      value: thirdcheck
+    - method: fqn
+      value: droptest
+    - method: fqn
+      value: srctable
+    - method: fqn
+      value: droptestuno
+  name: dynamicproc

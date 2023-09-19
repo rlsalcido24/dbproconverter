@@ -13,8 +13,17 @@
     skip: maybe
     conditions:
       notexist:
-        text: "SELECT 1 = 1"
-        false: skip     
+        text: "SELECT zzz"
+        true: "SELECT * FROM dbo.ETL_CONTROL_TABLE 
+    WHERE SOURCE_SYSTEM_CODE = @SOURCE_SYSTEM_CODE AND STATUS = 'Y'
+        AND EXTRACT_ID = @EXTRACT_ID ) 
+	BEGIN		 
+		SELECT	@ErrorMessage = object_name(@@procid) + ': Execution rejected. Last record in ETL_CONTROL_TABLE table for SOURCE_SYSTEM_CODE = ''' + RTRIM(@SOURCE_SYSTEM_CODE) + ''' must be with STATUS = ''Y''.'
+
+		SET @ErrorCode = -10
+		
+	END"
+        false: skip      
   next: 
     conditions:
       notexist:
@@ -29,7 +38,8 @@
     conditions:
       notexist:
         text: "SELECT 1 = 1"
-        false: skip     
+        true: "SELECT	@ErrorMessage = object_name(@@procid) + ': Executi rejected Only one record must exists in ETL_CONTROL_TABLE table with STATUS = ''Y'' for SOURCE_SYSTEM_CODE = ''' + RTRIM(@SOURCE_SYSTEM_CODE) + '''. SET @ErrorCode = -20 END "
+        false: skip    
   next: 
     conditions:
       notexist:
