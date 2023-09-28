@@ -28,5 +28,6 @@ We gladly welcome contributions-- as long as the tests for mix.yml, true.yml, an
 
 i) Support while looping <br>
 ii) Replace sql text so that dynamic database variables execute as expected against the DB. <br>
+iii) more scalable dialect conversion
 
 FWIW this will all be much easier once we natively support sql database vars and looping within workflows :)
